@@ -1,22 +1,27 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+//using System.Net.Http.Json;
 using System.Text;
-using System.Text.Json;
+using System.Threading.Tasks;
 using ChatGPT.Net.DTO;
 using ChatGPT.Net.DTO.ChatGPT;
 using ChatGPT.Net.DTO.ChatGPTUnofficial;
 using Newtonsoft.Json;
 
-namespace ChatGPT.Net;
-
+namespace ChatGPT.Net
+{
 public class ChatGpt
 {
     public Guid SessionId { get; set; }
-    public ChatGptOptions Config { get; set; } = new();
-    public List<ChatGptConversation> Conversations { get; set; } = new();
+    public ChatGptOptions Config { get; set; } = new ChatGptOptions();
+    public List<ChatGptConversation> Conversations { get; set; } = new List<ChatGptConversation>();
     public string APIKey { get; set; }
 
-    public ChatGpt(string apikey, ChatGptOptions? config = null)
+    public ChatGpt(string apikey, ChatGptOptions config = null)
     {
         Config = config ?? new ChatGptOptions();
         SessionId = Guid.NewGuid();
@@ -73,7 +78,7 @@ public class ChatGpt
         Conversations = conversations;
     }
 
-    public ChatGptConversation GetConversation(string? conversationId)
+    public ChatGptConversation GetConversation(string conversationId)
     {
         if (conversationId is null)
         {
@@ -121,7 +126,7 @@ public class ChatGpt
         var conversation = Conversations.FirstOrDefault(x => x.Id == conversationId);
 
         if (conversation == null) return;
-        conversation.Messages = new();
+        conversation.Messages = new List<ChatGptMessage>();
     }
 
     public void ClearConversations()
@@ -129,7 +134,7 @@ public class ChatGpt
         Conversations.Clear();
     }
 
-    public async Task<string> Ask(string prompt, string? conversationId = null)
+    public async Task<string> Ask(string prompt, string conversationId = null)
     {
         var conversation = GetConversation(conversationId);
 
@@ -165,7 +170,7 @@ public class ChatGpt
         return response;
     }
 
-    public async Task<string> AskStream(Action<string> callback, string prompt, string? conversationId = null)
+    public async Task<string> AskStream(Action<string> callback, string prompt, string conversationId = null)
     {
         var conversation = GetConversation(conversationId);
 
@@ -227,7 +232,8 @@ public class ChatGpt
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (contentType != "text/event-stream")
             {
-                var error = await response.Content.ReadFromJsonAsync<ChatGptResponse>();
+                //var error = await response.Content.ReadFromJsonAsync<ChatGptResponse>();
+                var error = JsonConvert.DeserializeObject<ChatGptResponse>(response.Content.ToString());
                 throw new Exception(error?.Error?.Message ?? "Unknown error");
             }
 
@@ -264,9 +270,12 @@ public class ChatGpt
             };
         }
 
-        var content = await response.Content.ReadFromJsonAsync<ChatGptResponse>();
-        if(content is null) throw new Exception("Unknown error");
+        //var content = await response.Content.ReadFromJsonAsync<ChatGptResponse>();
+        var content = JsonConvert.DeserializeObject<ChatGptResponse>(response.Content.ToString());
+        if (content is null) throw new Exception("Unknown error");
         if(content.Error is not null) throw new Exception(content.Error.Message);
         return content;
     }
+}
+
 }
